@@ -15,10 +15,12 @@ export async function captureWebSocketUrl({
   // Use chromium directly instead of msedge channel
   const browser: Browser = await chromium.launch({
     headless: true,
+    executablePath: process.env.CHROMIUM_PATH || undefined,
     args: [
       '--use-fake-ui-for-media-stream',
       '--use-fake-device-for-media-stream',
-      '--no-sandbox'
+      '--no-sandbox',
+      '--disable-setuid-sandbox'
     ]
   });
 

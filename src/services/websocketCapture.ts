@@ -12,8 +12,8 @@ export async function captureWebSocketUrl({
   character,
   timeout = 30_000
 }: WebSocketCaptureOptions): Promise<string | null> {
+  // Use chromium directly instead of msedge channel
   const browser: Browser = await chromium.launch({
-    channel: 'msedge',
     headless: true,
     args: [
       '--use-fake-ui-for-media-stream',
@@ -59,10 +59,13 @@ export async function captureWebSocketUrl({
         )
       ])) as string;
     } catch {
-      console.warn('WebSocket URL not captured in time');
+      console.warn('WebSocket capture timed out');
     }
 
     return wsUrl;
+  } catch (error) {
+    console.error('Browser automation error:', error);
+    return null;
   } finally {
     await browser.close();
   }

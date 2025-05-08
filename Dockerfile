@@ -1,6 +1,6 @@
 FROM node:16-bullseye
 
-# Significantly reduced dependencies since we're not using browser automation
+# Minimal dependencies needed
 RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
@@ -10,6 +10,11 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 RUN npm install --production=false
+
+# Install empty packages for Playwright and Puppeteer to satisfy imports
+RUN npm install --no-save \
+    playwright@empty \
+    puppeteer@empty
 
 # Copy source code
 COPY tsconfig.json ./

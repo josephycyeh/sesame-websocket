@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sesame AI Voice Chat</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #controls { margin-bottom: 20px; }
+    button { padding: 10px 20px; margin-right: 10px; }
+    #log { white-space: pre-wrap; background: #f4f4f4; padding: 10px; height: 200px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>Sesame AI Voice Chat</h1>
+  <div id="controls">
+    <select id="character">
+      <option value="maya">Maya</option>
+      <option value="miles">Miles</option>
+    </select>
+    <button id="start">Start Session</button>
+    <button id="stop" disabled>Stop</button>
+  </div>
+  <div id="log"></div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    function log(msg) {
+      logEl.textContent += msg + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    let ws, mediaStream, mediaRecorder;
+
+    document.getElementById('start').onclick = async () => {
+      const char = document.getElementById('character').value;
+      log('Fetching WebSocket URL for ' + char + '...');
+      const res = await fetch(`/capture-websocket/${char}`);
+      const { websocketUrl } = await res.json();
+      log('WebSocket URL: ' + websocketUrl);
+
+      ws = new WebSocket(websocketUrl);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onopen = () => {
+        log('WebSocket opened');
+        // send handshake
+        const startMsg = {
+          type: 'start',
+          character: char.charAt(0).toUpperCase() + char.slice(1),
+          sampleRate: 16000,
+          model: 'voice-v1'
+        };
+        ws.send(JSON.stringify(startMsg));
+        log('Sent handshake');
+
+        // start mic capture
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            mediaStream = stream;
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+            mediaRecorder.ondataavailable = e => {
+              if (ws.readyState === WebSocket.OPEN) {
+                e.data.arrayBuffer().then(buf => ws.send(buf));
+              }
+            };
+            mediaRecorder.start(250); // send data every 250ms
+            log('Microphone recording started');
+            document.getElementById('stop').disabled = false;
+          });
+      };
+
+      ws.onmessage = ev => {
+        try {
+          const msg = JSON.parse(ev.data);
+          log('JSON from server: ' + JSON.stringify(msg));
+        } catch {
+          log('Audio frame received (' + ev.data.byteLength + ' bytes)');
+        }
+      };
+
+      ws.onclose = () => log('WebSocket closed');
+      ws.onerror = e => log('WS error: ' + e.message);
+    };
+
+    document.getElementById('stop').onclick = () => {
+      // stop recorder and stream
+      mediaRecorder.stop();
+      mediaStream.getTracks().forEach(t => t.stop());
+      log('Stopped microphone');
+
+      // tell server end
+      ws.send(JSON.stringify({ type: 'end' }));
+      document.getElementById('stop').disabled = true;
+    };
+  </script>
+</body>
+</html>

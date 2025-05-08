@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { captureWebSocketUrl } from './services/websocketCapture';
 import { getDirectWebSocketUrl } from './services/directWebsocket';
+import { capturePuppeteerWebSocketUrl } from './services/puppeteerCapture';
 
 const app = express();
 const port = process.env.PORT || 2000;
@@ -21,17 +22,46 @@ app.get('/capture-websocket/:character', async (req: Request, res: Response) => 
   }
 
   try {
-    // Try browser automation method first
-    let wsUrl = await captureWebSocketUrl({ character: character as 'maya' | 'miles' });
+    let wsUrl = null;
     
-    // If browser method fails, try direct URL method
+    // Try puppeteer method first (most likely to work)
+    try {
+      console.log('Trying Puppeteer method...');
+      wsUrl = await capturePuppeteerWebSocketUrl({ character: character as 'maya' | 'miles' });
+      if (wsUrl) {
+        console.log('Puppeteer method succeeded');
+      }
+    } catch (e) {
+      console.error('Puppeteer method failed:', e);
+    }
+    
+    // Try playwright method if puppeteer fails
     if (!wsUrl) {
-      console.log('Browser automation failed, trying direct WebSocket URL...');
+      try {
+        console.log('Trying Playwright method...');
+        wsUrl = await captureWebSocketUrl({ character: character as 'maya' | 'miles' });
+        if (wsUrl) {
+          console.log('Playwright method succeeded');
+        }
+      } catch (e) {
+        console.error('Playwright method failed:', e);
+      }
+    }
+    
+    // Try direct URL method as last resort
+    if (!wsUrl) {
+      console.log('Trying direct WebSocket URL method...');
       wsUrl = await getDirectWebSocketUrl({ character: character as 'maya' | 'miles' });
+      if (wsUrl) {
+        console.log('Direct method succeeded');
+      }
     }
     
     if (!wsUrl) {
-      return res.status(404).json({ success: false, error: 'No WebSocket URL available' });
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Failed to get WebSocket URL through all available methods' 
+      });
     }
     
     res.json({ success: true, character, websocketUrl: wsUrl });

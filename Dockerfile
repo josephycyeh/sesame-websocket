@@ -1,21 +1,33 @@
-# Use an official Node.js image as the base
-FROM node:18
+# ── Builder Stage ─────────────────────────────────────────────────────────
+FROM node:22-slim AS builder
 
-# Set the working directory
+# Where our app lives in the container
 WORKDIR /usr/src/app
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install --no-optional
+# Copy only package manifests and lockfile
+COPY package.json package-lock.json ./
 
-# Copy the rest of the application source code
+# Install ALL dependencies (no-optional skips fsevents et al)
+RUN npm ci --no-optional
+
+# Bring in source code and build
 COPY . .
-
-# Build the TypeScript code
 RUN npm run build
 
-# Expose the port the app runs on
+# ── Production Stage ──────────────────────────────────────────────────────
+FROM node:22-slim
+
+WORKDIR /usr/src/app
+
+# Only production deps, again skipping optional ones
+COPY package.json package-lock.json ./
+RUN npm ci --production --no-optional
+
+# Copy compiled output from builder
+COPY --from=builder /usr/src/app/dist ./dist
+
+# If your server listens on another port, change this
 EXPOSE 3000
 
-# Run the app
-CMD ["npm", "start"]
+# Run the built JS
+CMD ["node", "dist/index.js"]

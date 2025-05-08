@@ -1,32 +1,57 @@
-FROM mcr.microsoft.com/playwright:v1.35.0-focal
+FROM node:18-slim
+
+# Install dependencies for Playwright
+RUN apt-get update && apt-get install -y \
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libdbus-1-3 \
+    libxcb1 \
+    libxkbcommon0 \
+    libx11-6 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libasound2 \
+    libatspi2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Node.js dependencies first (for better caching)
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy source code
-COPY . .
-
-# Build TypeScript project 
+# Copy the rest of the application
 COPY tsconfig.json ./
+COPY public/ ./public/
 COPY src/ ./src/
+
+# Build the TypeScript code
 RUN npm run build
 
-# Set browser flags for containerized environment
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# Environment variables for browser
+ENV NODE_ENV=production
+ENV PORT=2000
 
-# Additional browser arguments for headless mode
+# Install only the Chromium browser for Playwright
+RUN npx playwright install chromium
+
+# Set browser flags for containerized environment
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 ENV BROWSER_ARGS="--no-sandbox --disable-setuid-sandbox --use-fake-ui-for-media-stream --use-fake-device-for-media-stream"
 
 # Expose the application port
 EXPOSE 2000
-
-# Default environment variables
-ENV PORT=2000
-ENV NODE_ENV=production
 
 # Start the application
 CMD ["node", "dist/index.js"]

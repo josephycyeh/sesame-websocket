@@ -1,7 +1,9 @@
 // src/index.ts
 import express, { Request, Response } from 'express';
 import path from 'path';
+import { captureWebSocketUrl } from './services/websocketCapture';
 import { getDirectWebSocketUrl } from './services/directWebsocket';
+import { capturePuppeteerWebSocketUrl } from './services/puppeteerCapture';
 
 const app = express();
 const port = process.env.PORT || 2000;

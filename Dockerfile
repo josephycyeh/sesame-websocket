@@ -4,12 +4,14 @@ WORKDIR /app
 
 # Install Node.js dependencies first (for better caching)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
 
-# Build TypeScript project
+# Build TypeScript project 
+COPY tsconfig.json ./
+COPY src/ ./src/
 RUN npm run build
 
 # Set browser flags for containerized environment

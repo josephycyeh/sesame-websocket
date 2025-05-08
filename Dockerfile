@@ -1,4 +1,4 @@
-FROM node:18-slim
+FROM node:16-bullseye
 
 # Install dependencies for Playwright
 RUN apt-get update && apt-get install -y \
@@ -23,35 +23,28 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libasound2 \
     libatspi2.0-0 \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm install
+# Copy everything and install with production flag
+COPY . .
+RUN npm install --production=false
 
-# Copy the rest of the application
-COPY tsconfig.json ./
-COPY public/ ./public/
-COPY src/ ./src/
-
-# Build the TypeScript code
+# Build TypeScript
 RUN npm run build
 
-# Environment variables for browser
-ENV NODE_ENV=production
-ENV PORT=2000
-
-# Install only the Chromium browser for Playwright
+# Install only Chromium browser
 RUN npx playwright install chromium
 
-# Set browser flags for containerized environment
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# Configure environment
+ENV NODE_ENV=production
+ENV PORT=2000
 ENV BROWSER_ARGS="--no-sandbox --disable-setuid-sandbox --use-fake-ui-for-media-stream --use-fake-device-for-media-stream"
 
-# Expose the application port
+# Expose port
 EXPOSE 2000
 
-# Start the application
+# Start app
 CMD ["node", "dist/index.js"]

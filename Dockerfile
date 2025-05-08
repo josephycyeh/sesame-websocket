@@ -32,6 +32,9 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --production=false
 
+# Add puppeteer to dependencies
+RUN npm install puppeteer@19.11.1
+
 # Copy source code
 COPY tsconfig.json ./
 COPY src ./src
@@ -40,9 +43,18 @@ COPY public ./public
 # Build TypeScript
 RUN npm run build
 
-# Install only Chromium browser and ensure skip browser download validation
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0
-RUN npx playwright install chromium --with-deps
+# Install Chromium from Debian repos
+RUN apt-get update && \
+    apt-get install -y wget gnupg && \
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list && \
+    apt-get update && \
+    apt-get install -y google-chrome-stable && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set Chrome as the browser for Playwright
+ENV CHROMIUM_PATH=/usr/bin/google-chrome-stable
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 # Configure environment
 ENV NODE_ENV=production

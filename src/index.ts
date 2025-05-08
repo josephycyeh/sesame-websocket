@@ -2,6 +2,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { captureWebSocketUrl } from './services/websocketCapture';
+import { getDirectWebSocketUrl } from './services/directWebsocket';
 
 const app = express();
 const port = process.env.PORT || 2000;
@@ -20,10 +21,19 @@ app.get('/capture-websocket/:character', async (req: Request, res: Response) => 
   }
 
   try {
-    const wsUrl = await captureWebSocketUrl({ character: character as 'maya' | 'miles' });
+    // Try browser automation method first
+    let wsUrl = await captureWebSocketUrl({ character: character as 'maya' | 'miles' });
+    
+    // If browser method fails, try direct URL method
     if (!wsUrl) {
-      return res.status(404).json({ success: false, error: 'No WebSocket URL captured' });
+      console.log('Browser automation failed, trying direct WebSocket URL...');
+      wsUrl = await getDirectWebSocketUrl({ character: character as 'maya' | 'miles' });
     }
+    
+    if (!wsUrl) {
+      return res.status(404).json({ success: false, error: 'No WebSocket URL available' });
+    }
+    
     res.json({ success: true, character, websocketUrl: wsUrl });
   } catch (error) {
     console.error('Error capturing WebSocket URL:', error);
@@ -31,7 +41,12 @@ app.get('/capture-websocket/:character', async (req: Request, res: Response) => 
   }
 });
 
-// Fallback for SPA routing (if needed)
+// Add health check endpoint
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Fallback for SPA routing
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });

@@ -1,24 +1,30 @@
-# ── Base Node Image (has npm) ─────────────────────────────────────────────
-FROM node:18
+FROM mcr.microsoft.com/playwright:v1.35.0-focal
 
-# Create & set working directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Copy manifests (lockfile ensures exact versions)
-COPY package.json package-lock.json ./
+# Install Node.js dependencies first (for better caching)
+COPY package*.json ./
+RUN npm ci
 
-# Install dependencies, skip optional (no more fsevents noise)
-RUN npm install --no-optional
-
-# Copy the rest of your source
+# Copy source code
 COPY . .
 
-# Build TS and then remove devDependencies from node_modules
-RUN npm run build \
- && npm prune --production
+# Build TypeScript project
+RUN npm run build
 
-# Expose your app’s port (adjust if needed)
-EXPOSE 3000
+# Set browser flags for containerized environment
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
-# Start the compiled server
+# Additional browser arguments for headless mode
+ENV BROWSER_ARGS="--no-sandbox --disable-setuid-sandbox --use-fake-ui-for-media-stream --use-fake-device-for-media-stream"
+
+# Expose the application port
+EXPOSE 2000
+
+# Default environment variables
+ENV PORT=2000
+ENV NODE_ENV=production
+
+# Start the application
 CMD ["node", "dist/index.js"]

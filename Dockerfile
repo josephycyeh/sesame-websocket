@@ -1,33 +1,32 @@
 # ── Builder Stage ─────────────────────────────────────────────────────────
 FROM node:22-slim AS builder
 
-# Where our app lives in the container
+# Set working directory
 WORKDIR /usr/src/app
 
-# Copy only package manifests and lockfile
+# Copy dependency manifests and install all deps (skip optional like fsevents)
 COPY package.json package-lock.json ./
-
-# Install ALL dependencies (no-optional skips fsevents et al)
 RUN npm ci --no-optional
 
-# Bring in source code and build
+# Copy source and build
 COPY . .
 RUN npm run build
 
 # ── Production Stage ──────────────────────────────────────────────────────
 FROM node:22-slim
 
+# Set working directory
 WORKDIR /usr/src/app
 
-# Only production deps, again skipping optional ones
+# Install only production deps (skip optional)
 COPY package.json package-lock.json ./
 RUN npm ci --production --no-optional
 
-# Copy compiled output from builder
+# Copy built output from builder
 COPY --from=builder /usr/src/app/dist ./dist
 
-# If your server listens on another port, change this
+# Expose the port your app uses (adjust if needed)
 EXPOSE 3000
 
-# Run the built JS
+# Start the server
 CMD ["node", "dist/index.js"]
